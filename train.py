@@ -3,14 +3,14 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torch.nn import Conv2d,LeakyReLU,BatchNorm2d, ConvTranspose2d,ReLU
 import cv2,datetime,os
-from net2 import GeneratorNet,DiscrimiterNet
+from net import GeneratorNet,DiscrimiterNet
 import torch.optim as optim
 from dataset import MYDataSet
 from utils import loss_igdl
 import argparse
 from tensorboardX import SummaryWriter
 import numpy as np
-from nets.commons import VGG19_PercepLoss
+from commons import VGG19_PercepLoss
 
 def ToTensor(image):
     """Convert ndarrays in sample to Tensors."""
@@ -37,6 +37,9 @@ parser.add_argument('--log_root',type=str,default='./log',help='The root path to
 parser.add_argument('--gpu_id',type=str,default='0',help='Choose one gpu to use. Only single gpu training is supported currently')
 args = parser.parse_args()
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # used this for chosing device as cpu/gpu
+print("Using device:", device)
+
 if __name__ == "__main__":
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu_id
     wgan = args.use_wgan
@@ -48,8 +51,10 @@ if __name__ == "__main__":
     lambda_3 = args.lbda3
     # Weight for image gradient difference loss
     #netG = GeneratorNet().cuda()
-    netG = GeneratorNet().cuda()
-    netD = DiscrimiterNet(wgan_loss=wgan).cuda()
+    # netG = GeneratorNet().cuda()
+    # netD = DiscrimiterNet(wgan_loss=wgan).cuda()
+    netG = GeneratorNet().to(device) # first checked whether cpu/gpu is available
+    netD = DiscrimiterNet(wgan_loss=wgan).to(device)
 
     optimizer_g = optim.Adam(netG.parameters(),lr=learnint_rate)
     optimizer_d = optim.Adam(netD.parameters(),lr=learnint_rate)
@@ -76,9 +81,11 @@ if __name__ == "__main__":
         g_loss_log_list = []
         for iteration, data in enumerate(datasetloader):
             #batchtensor_A = data[0].cuda()
-           # batchtensor_B = data[1].cuda()
-            batchtensor_A = data[0].cuda()
-            batchtensor_B = data[1].cuda()
+            #batchtensor_B = data[1].cuda()
+            # batchtensor_A = data[0].cuda()
+            # batchtensor_B = data[1].cuda()
+            batchtensor_A = data[0].to(device)
+            batchtensor_B = data[1].to(device)
             generated_batchtensor = netG.forward(batchtensor_A)
 
             ######################
@@ -98,13 +105,15 @@ if __name__ == "__main__":
                 
                 lambda_gp = 10 # as setted in the paper
                 
-                epsilon = torch.rand(batchtensor_B.size()[0], 1, 1, 1).cuda()
+                # epsilon = torch.rand(batchtensor_B.size()[0], 1, 1, 1).cuda()
+                epsilon = torch.rand(batchtensor_B.size(0), 1, 1, 1, device=device)
                 x_hat = batchtensor_B * epsilon + (1 -epsilon)*generated_batchtensor
                 d_hat = netD.forward(x_hat)
                 
                 # Following code is taken from https://github.com/EmilienDupont/wgan-gp/blob/master/training.py
                 # to calculate gradients penalty
-                grad_outputs = torch.ones(d_hat.size()).cuda()
+                # grad_outputs = torch.ones(d_hat.size()).cuda()
+                grad_outputs = torch.ones_like(d_hat, device=device) # Random tensors on same device created
                 gradients = torch.autograd.grad( # Calculate gradients of probabilities with respect to examples
                     outputs=d_hat,
                     inputs=x_hat,
@@ -114,7 +123,7 @@ if __name__ == "__main__":
                 )[0]
                 # Gradients have shape (batch_size, num_channels, img_width, img_height),
                 # so flatten to easily take norm per example in batch
-                gradients = gradients.view(batch_size,-1)
+                gradients = gradients.view(gradients.size(0), -1)
                 
                 # Derivatives of the gradient close to 0 can cause problems because of
                 # the square root, so manually calculate norm and add epsilon
