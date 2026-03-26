@@ -36,6 +36,10 @@ class MYDataSet(Dataset):
         train_A_img = cv2.imread(train_A_img_path)
         train_B_img = cv2.imread(train_B_img_path)
 
+        # IMPORTANT: make sizes compatible with U-Net (multiple of 256)
+        train_A_img = cv2.resize(train_A_img, (256, 256), interpolation=cv2.INTER_AREA)
+        train_B_img = cv2.resize(train_B_img, (256, 256), interpolation=cv2.INTER_AREA)
+
         train_A_tensor = self.transform(train_A_img)
         train_B_tensor = self.transform(train_B_img)
 

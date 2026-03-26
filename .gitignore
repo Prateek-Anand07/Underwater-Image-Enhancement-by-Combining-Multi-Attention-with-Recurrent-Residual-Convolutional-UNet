@@ -1,0 +1,23 @@
+#Datasets and outputs
+data/
+checkpoints/
+log/
+output/
+output_baseline/
+
+# Model files
+*.pth
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Environment files
+.env
+
+# Jupyter (if used later)
+.ipynb_checkpoints/
+
+# OS files
+.DS_Store
+Thumbs.db
