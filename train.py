@@ -12,6 +12,10 @@ from tensorboardX import SummaryWriter
 import numpy as np
 from commons import VGG19_PercepLoss
 
+# 🔥 ADDED CODE START
+import os
+# 🔥 ADDED CODE END
+
 def ToTensor(image):
     """Convert ndarrays in sample to Tensors."""
     # numpy image: H x W x C
@@ -76,7 +80,28 @@ if __name__ == "__main__":
     if not os.path.exists(checkpoint_dir):
         os.makedirs(checkpoint_dir)
 
-    for epoch in range(0,max_epoch):
+    # 🔥 ADDED CODE START (RESUME SUPPORT)
+    CHECKPOINT_PATH = os.path.join(checkpoint_root, "latest_checkpoint.pth")
+    start_epoch = 0
+
+    if os.path.exists(CHECKPOINT_PATH):
+        print("🔄 Loading checkpoint...")
+        checkpoint = torch.load(CHECKPOINT_PATH, map_location=device)
+
+        netG.load_state_dict(checkpoint['netG'])
+        netD.load_state_dict(checkpoint['netD'])
+        optimizer_g.load_state_dict(checkpoint['optimizer_g'])
+        optimizer_d.load_state_dict(checkpoint['optimizer_d'])
+
+        start_epoch = checkpoint['epoch'] + 1
+        print(f"✅ Resuming from epoch {start_epoch}")
+    else:
+        print("🚀 Starting fresh training")
+    # 🔥 ADDED CODE END
+
+    # 🔥 MODIFIED LOOP START
+    for epoch in range(start_epoch, max_epoch):
+    # 🔥 MODIFIED LOOP END
         d_loss_log_list = []
         g_loss_log_list = []
         for iteration, data in enumerate(datasetloader):
@@ -121,20 +146,11 @@ if __name__ == "__main__":
                     create_graph=True,
                     retain_graph=True
                 )[0]
-                # Gradients have shape (batch_size, num_channels, img_width, img_height),
-                # so flatten to easily take norm per example in batch
                 gradients = gradients.view(gradients.size(0), -1)
-                
-                # Derivatives of the gradient close to 0 can cause problems because of
-                # the square root, so manually calculate norm and add epsilon
                 gradients_norm = torch.sqrt(torch.sum(gradients ** 2, dim=1) + 1e-12)
-
-                # Calculate gradient penalty
                 gradient_penalty =  lambda_gp*torch.mean((gradients_norm - 1) ** 2)
 
                 d_loss += gradient_penalty 
-                #--- wgan loss cost function---#
-                #------------------------------#   
 
                 d_loss.backward(retain_graph=True)
                 netG.zero_grad()
@@ -164,7 +180,6 @@ if __name__ == "__main__":
             igdl_loss_log = igdl_loss.item()
 
             g_loss += lambda_1 *l1_loss + lambda_2*igdl_loss+ lambda_3*loss_con
-            #g_loss += lambda_1 * l1_loss
             g_loss_log = g_loss.item()
             g_loss_log_list.append(g_loss_log)
 
@@ -185,9 +200,18 @@ if __name__ == "__main__":
         writer.add_scalar('D_loss_epoch',d_loss_average_log,epoch)
         writer.add_scalar('G_loss_epoch',g_loss_average_log,epoch)
 
+        # 🔥 ADDED CODE START (SAVE CHECKPOINT)
+        torch.save({
+            'epoch': epoch,
+            'netG': netG.state_dict(),
+            'netD': netD.state_dict(),
+            'optimizer_g': optimizer_g.state_dict(),
+            'optimizer_d': optimizer_d.state_dict()
+        }, CHECKPOINT_PATH)
+        print(f"💾 Checkpoint saved at epoch {epoch}")
+        # 🔥 ADDED CODE END
+
        # torch.save(netD.state_dict(),os.path.join(checkpoint_dir,'netD_%d.pth'%epoch))
         torch.save(netG.state_dict(),os.path.join(checkpoint_dir,'netG_%d.pth'%epoch))
     
     writer.close()
-    
-

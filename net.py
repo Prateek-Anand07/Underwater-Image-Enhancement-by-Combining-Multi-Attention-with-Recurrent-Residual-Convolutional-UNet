@@ -20,6 +20,8 @@ def discrimiter_layer(in_channels, out_channels, kernel_size=4, stride=2, paddin
             LeakyReLU(0.2)
         )
     return layer
+
+
 class ChannelAttentionModule(nn.Module):
     def __init__(self, channel, ratio=1):
         super(ChannelAttentionModule, self).__init__()
@@ -38,6 +40,7 @@ class ChannelAttentionModule(nn.Module):
         maxout = self.shared_MLP(self.max_pool(x))
         return self.sigmoid(avgout + maxout)
 
+
 class SpatialAttentionModule(nn.Module):
     def __init__(self):
         super(SpatialAttentionModule, self).__init__()
@@ -50,6 +53,7 @@ class SpatialAttentionModule(nn.Module):
         out = torch.cat((avgout, maxout), dim=1)
         out = self.sigmoid(self.conv2d(out))
         return out
+
 
 class CBAM(nn.Module):
     def __init__(self, channel):
@@ -80,7 +84,6 @@ class conv_block(nn.Module):
         return x
 
 
-
 class up_conv(nn.Module):
     """
     Up Convolution Block
@@ -97,6 +100,7 @@ class up_conv(nn.Module):
     def forward(self, x):
         x = self.up(x)
         return x
+
 
 class Recurrent_block(nn.Module):
     """
@@ -119,6 +123,8 @@ class Recurrent_block(nn.Module):
                 x = self.conv(x)
             out = self.conv(x + x)
         return out
+
+
 class RRCNN_block(nn.Module):
     """
     Recurrent Residual Convolutional Neural Network Block
@@ -137,6 +143,8 @@ class RRCNN_block(nn.Module):
         x2 = self.RCNN(x1)
         out = x1 + x2
         return out
+
+
 class Attention_block(nn.Module):
     """
     Attention Block
@@ -171,6 +179,7 @@ class Attention_block(nn.Module):
         out = x * psi
         return out
 
+
 class GeneratorNet(nn.Module):
     def __init__(self, img_ch=3, output_ch=3):
         super(GeneratorNet, self).__init__()
@@ -179,30 +188,24 @@ class GeneratorNet(nn.Module):
         filters = [n1, n1 * 2, n1 * 4, n1 * 8, n1 * 16]
         self.Maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        self.Conv1 = conv_block(ch_in=img_ch, ch_out=64)  # 64
-        self.Conv2 = conv_block(ch_in=64, ch_out=128)  # 64 128
-        self.Conv3 = conv_block(ch_in=128, ch_out=256)  # 128 256
-        self.Conv4 = conv_block(ch_in=256, ch_out=512)  # 256 512
-        self.Conv5 = conv_block(ch_in=512, ch_out=1024)  # 512 1024
+        self.Conv1 = conv_block(ch_in=img_ch, ch_out=64)
+        self.Conv2 = conv_block(ch_in=64, ch_out=128)
+        self.Conv3 = conv_block(ch_in=128, ch_out=256)
+        self.Conv4 = conv_block(ch_in=256, ch_out=512)
+        self.Conv5 = conv_block(ch_in=512, ch_out=1024)
 
         self.cbam1 = CBAM(channel=64)
         self.cbam2 = CBAM(channel=128)
         self.cbam3 = CBAM(channel=256)
         self.cbam4 = CBAM(channel=512)
 
-        #self.Up5 = up_conv(ch_in=1024, ch_out=512)  # 1024 512
         self.Up_conv5 = conv_block(filters[4], filters[3])
-
-        #self.Up4 = up_conv(ch_in=512, ch_out=256)  # 512 256
         self.Up_conv4 = conv_block(filters[3], filters[2])
-
-        #self.Up3 = up_conv(ch_in=256, ch_out=128)  # 256 128
         self.Up_conv3 = conv_block(filters[2], filters[1])
-
-        #self.Up2 = up_conv(ch_in=128, ch_out=64)  # 128 64
         self.Up_conv2 = conv_block(filters[1], filters[0])
 
-        self.Conv_1x1 = nn.Conv2d(64, output_ch, kernel_size=1, stride=1, padding=0)  # 64
+        self.Conv_1x1 = nn.Conv2d(64, output_ch, kernel_size=1, stride=1, padding=0)
+
         self.Up5 = up_conv(filters[4], filters[3])
         self.Att5 = Attention_block(F_g=filters[3], F_l=filters[3], F_int=filters[2])
         self.Up_RRCNN5 = RRCNN_block(filters[4], filters[3], t=t)
@@ -220,8 +223,8 @@ class GeneratorNet(nn.Module):
         self.Up_RRCNN2 = RRCNN_block(filters[1], filters[0], t=t)
 
         self.Conv = nn.Conv2d(filters[0], output_ch, kernel_size=1, stride=1, padding=0)
+
     def forward(self, x):
-        # encoding path
         x1 = self.Conv1(x)
         x1 = self.cbam1(x1) + x1
 
@@ -240,44 +243,42 @@ class GeneratorNet(nn.Module):
         x5 = self.Maxpool(x4)
         x5 = self.Conv5(x5)
 
-        # decoding + concat path
         d5 = self.Up5(x5)
-        x4 = self.Att5(g=d5, x=x4)#r2u把这一行注释掉就好了
+        x4 = self.Att5(g=d5, x=x4)
         d5 = torch.cat((x4, d5), dim=1)
         d5 = self.Up_RRCNN5(d5)
-        #d5 = self.Up_conv5(d5)
 
         d4 = self.Up4(d5)
         x3 = self.Att4(g=d4, x=x3)
         d4 = torch.cat((x3, d4), dim=1)
         d4 = self.Up_RRCNN4(d4)
-        #d4 = self.Up_conv4(d4)
 
         d3 = self.Up3(d4)
         x2 = self.Att3(g=d3, x=x2)
         d3 = torch.cat((x2, d3), dim=1)
         d3 = self.Up_RRCNN3(d3)
-        #d3 = self.Up_conv3(d3)
 
         d2 = self.Up2(d3)
         x1 = self.Att2(g=d2, x=x1)
         d2 = torch.cat((x1, d2), dim=1)
         d2 = self.Up_RRCNN2(d2)
-        #d2 = self.Up_conv2(d2)
 
         d1 = self.Conv(d2)
-        d1 = torch.tanh(d1)#！！！！！！！1
+        d1 = torch.tanh(d1)
         return d1
+
+
 class DiscrimiterNet(torch.nn.Module):
     def __init__(self, wgan_loss):
         super(DiscrimiterNet, self).__init__()
         self.wgan_loss = wgan_loss
 
-        self.conv1 = discrimiter_layer(3, 64, self.wgan_loss)
-        self.conv2 = discrimiter_layer(64, 128, self.wgan_loss)
-        self.conv3 = discrimiter_layer(128, 256, self.wgan_loss)
-        self.conv4 = discrimiter_layer(256, 512, self.wgan_loss)
-        self.conv5 = discrimiter_layer(512, 1, kernel_size=1, stride=1)
+        # ✅ FIXED
+        self.conv1 = discrimiter_layer(3, 64, wgan=self.wgan_loss)
+        self.conv2 = discrimiter_layer(64, 128, wgan=self.wgan_loss)
+        self.conv3 = discrimiter_layer(128, 256, wgan=self.wgan_loss)
+        self.conv4 = discrimiter_layer(256, 512, wgan=self.wgan_loss)
+        self.conv5 = discrimiter_layer(512, 1, kernel_size=1, stride=1, wgan=self.wgan_loss)
 
     def forward(self, x):
         x = self.conv1(x)#128
@@ -287,3 +288,4 @@ class DiscrimiterNet(torch.nn.Module):
         x = self.conv5(x)
 
         return x
+

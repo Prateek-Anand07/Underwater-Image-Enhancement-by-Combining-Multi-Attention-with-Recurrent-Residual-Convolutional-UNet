@@ -27,14 +27,26 @@ class MYDataSet(Dataset):
             img_path = os.path.join(img_dir,img_name)
             img_list.append(img_path)
         return img_list
+
     def __len__(self):
         return len(self.train_A_imglist)
+
     def __getitem__(self,index):
         train_A_img_path = self.train_A_imglist[index]
         train_B_img_path = self.train_B_imglist[index]
 
         train_A_img = cv2.imread(train_A_img_path)
         train_B_img = cv2.imread(train_B_img_path)
+
+        # 🔥 ADDED CODE START (safety check)
+        if train_A_img is None or train_B_img is None:
+            raise ValueError(f"Error loading image at index {index}")
+        # 🔥 ADDED CODE END
+
+        # 🔥 ADDED CODE START (BGR → RGB FIX)
+        train_A_img = cv2.cvtColor(train_A_img, cv2.COLOR_BGR2RGB)
+        train_B_img = cv2.cvtColor(train_B_img, cv2.COLOR_BGR2RGB)
+        # 🔥 ADDED CODE END
 
         # IMPORTANT: make sizes compatible with U-Net (multiple of 256)
         train_A_img = cv2.resize(train_A_img, (256, 256), interpolation=cv2.INTER_AREA)
