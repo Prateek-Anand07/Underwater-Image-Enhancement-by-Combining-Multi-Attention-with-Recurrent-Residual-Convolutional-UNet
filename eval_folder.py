@@ -20,9 +20,19 @@ if __name__ == "__main__":
     with torch.no_grad():
         #checkpoint = torch.load(args.checkpoint)#GPU跑的 l1loss_only 501020-97lun
         # checkpoint = torch.load('checkpoints/end/netG_61.pth', map_location='cpu')#Change this part! (as hardcoded)
+        # checkpoint = torch.load(args.checkpoint, map_location='cpu')
+        # #checkpoint = torch.load('checkpoints/l1loss_only/netG_422.pth', map_location='cpu')  # 改的是这里！
+        # netG.load_state_dict(checkpoint)
+        
         checkpoint = torch.load(args.checkpoint, map_location='cpu')
-        #checkpoint = torch.load('checkpoints/l1loss_only/netG_422.pth', map_location='cpu')  # 改的是这里！
-        netG.load_state_dict(checkpoint)
+
+   
+        if isinstance(checkpoint, dict) and 'netG' in checkpoint:
+            netG.load_state_dict(checkpoint['netG'])
+        else:
+            netG.load_state_dict(checkpoint)
+      
+        
         img_folder = args.img_folder
         pbar = tqdm(os.listdir(img_folder))
         for img_name in os.listdir(img_folder):
