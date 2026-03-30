@@ -26,11 +26,12 @@ if __name__ == "__main__":
         
         checkpoint = torch.load(args.checkpoint, map_location='cpu')
 
+        # 🔥 FIX START
         if isinstance(checkpoint, dict) and 'netG' in checkpoint:
             netG.load_state_dict(checkpoint['netG'])
         else:
             netG.load_state_dict(checkpoint)
-
+        # 🔥 FIX END
         
         img_folder = args.img_folder
         pbar = tqdm(os.listdir(img_folder))
