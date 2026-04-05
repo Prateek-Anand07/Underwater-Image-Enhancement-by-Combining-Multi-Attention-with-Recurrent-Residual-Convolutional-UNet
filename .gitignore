@@ -1,22 +1,38 @@
-#Datasets and outputs
+# Datasets and outputs
 data/
 checkpoints/
 log/
 output/
 output_baseline/
+evaluation/results/*
 
 # Model files
 *.pth
 
 # Python cache
-__pycache__/
+**/__pycache__/
 *.pyc
+*.pyo
+*.pyd
 
 # Environment files
 .env
 
-# Jupyter (if used later)
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Jupyter
 .ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+
+# Temp files
+*.log
+*.tmp
 
 # OS files
 .DS_Store
